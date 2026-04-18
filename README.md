@@ -1,19 +1,80 @@
-Session Cleaner is a standalone KOReader plugin for inspecting and cleaning suspicious reading sessions directly from KOReader’s statistics database. Its purpose is very specific: help users identify useless or misleading session fragments in their reading history and remove them safely from the real SQLite source, instead of merely hiding them in the interface.
+# Session Cleaner
 
-KOReader stores raw reading activity in statistics.sqlite3, mainly in the page_stat_data table. The important detail is that KOReader does not store finished “sessions” as a native table. What it stores are raw page activity rows. Session Cleaner reconstructs sessions from those raw rows by grouping entries for the same book in chronological order and splitting them according to a configurable time gap. In other words, the plugin builds meaningful sessions from the low-level data KOReader already records.
+Session Cleaner is a standalone KOReader plugin for inspecting and cleaning suspicious reading sessions directly from KOReader's statistics database.
 
-The main use case is cleaning “garbage sessions.” These are usually tiny accidental fragments created by opening a book, waking the device, tapping around without really reading, or generating rows that do not represent a real reading session. The most important heuristic is “no page advance,” meaning the first and last page of the reconstructed session are the same. There is also an optional “short session” filter based on duration, but that is secondary. The plugin is designed around the idea that no-page-advance sessions are often the most suspicious ones and the most useful to review manually.
+Its purpose is very specific: help users identify useless or misleading session fragments in their reading history and remove them safely from the real SQLite source, instead of merely hiding them in the interface.
 
-The plugin works as a true maintenance browser, not as an add-on to the currently open book and not as an extension of the existing popup statistics view. On the first screen, it shows a browsable list of books that have statistics in the database. From there, the user can select any book and enter a session inspection view. On the second screen, the plugin shows the reconstructed sessions for that specific book, with filtering options and deletion controls.
+## What it does
 
-The session view is meant to answer a few practical questions very quickly: how many raw rows exist for this book, how many reconstructed sessions there are, which ones look suspicious, and which one should be deleted. Each session displays its time range, page movement, progress delta, duration, number of raw rows, and unique pages involved. The plugin is meant for manual review, not blind automation.
+Session Cleaner:
 
-A key part of the design is that deletion is real. Session Cleaner does not hide sessions in memory and does not maintain a separate ignore list. When the user chooses to delete a session, the plugin deletes the exact underlying raw rows from page_stat_data using their actual SQLite row identifiers. Because of that, the cleanup affects the real KOReader statistics database. The removed session should therefore disappear not only from Session Cleaner itself, but also from other tools that read the same database, including native statistics views and third-party plugins that rely on the same data.
+- browses books with reading statistics
+- reconstructs sessions from raw `page_stat_data` rows
+- highlights suspicious sessions such as no-page-advance and short sessions
+- shows the exact raw rows that belong to each session
+- can delete the real underlying rows from `statistics.sqlite3`
+- can create a backup before deletion
+- supports multi-select deletion
+- uses KOReader's native menu shell for stable fullscreen navigation
+- includes UI scale presets
 
-Safety is a core part of the plugin. Deletion is always explicit and always confirmed. Before deleting anything, the plugin shows a destructive-action warning with the book title, session date and time, page range, and the number of raw database rows that will be removed. The plugin also supports backup creation for statistics.sqlite3, so users can preserve the database before making changes. The deletion routine uses SQLite transactions so that the change is either fully applied or rolled back cleanly on failure.
+## Why it exists
 
-From a technical point of view, the plugin separates four responsibilities: database access, session reconstruction, UI, and deletion. It was built as a standalone maintenance utility rather than a quick patch to an existing popup. The reconstruction logic is grounded in KOReader’s real schema, but because KOReader does not expose a dedicated session table, some behavior necessarily depends on runtime interpretation. The most important configurable assumption is the session gap threshold: if the time gap between rows exceeds the chosen limit, the plugin treats that as the boundary between one session and the next.
+KOReader statistics are very useful, but they can accumulate misleading fragments over time: tiny accidental opens, duplicate fragments, no-page-advance sessions, and other noise that makes the reading history less trustworthy.
 
-What the plugin is not trying to do is also important. It does not auto-delete suspicious sessions globally. It does not silently batch-clean the database. It does not depend on the currently open document. It does not ask the user to edit SQLite manually outside KOReader. It is a manual inspection and cleanup tool for people who care about the quality of their reading statistics and want direct control over what gets removed.
+Session Cleaner is designed as a maintenance tool for users who want more control over their statistics and want to clean the real data safely.
 
-In its current state, the plugin is already functional and useful, especially for finding and deleting no-page-advance fragments and other suspicious micro-sessions. The area that still needs the most work is the interface. The core logic is there, but the UI still needs refinement to become more elegant, more scannable, and more native-feeling on e-ink devices. That makes it a good candidate for collaboration: the hard part of the workflow already exists, and a contributor could focus on improving layout, hierarchy, and interaction polish.
+## Safety
+
+Session Cleaner edits the real `statistics.sqlite3` database.
+
+Deletion is always explicit and confirmed. If backup-before-delete is enabled, the plugin creates a backup before removing rows.
+
+The plugin is built around a trusted database/session engine that was preserved through the UI rewrite.
+
+## Highlights in v1.10.1
+
+Version `v1.10.1` is the recommended public baseline.
+
+This release keeps the trusted database/session engine and replaces the older UI with a stable native KOReader menu-based interface.
+
+### Main improvements over the old version
+
+- stable fullscreen native-menu rewrite
+- preserved DB/session engine
+- exact session inspection before deletion
+- multi-select session deletion
+- UI scale presets
+- cleaner typography and safer row presentation
+- faster post-delete navigation through in-memory hot-path updates
+
+## Installation
+
+1. Download the latest release asset ZIP.
+2. Extract it so you get a folder named `sessioncleaner.koplugin`.
+3. Copy that folder into KOReader's `plugins` directory.
+4. Restart KOReader.
+
+## Basic workflow
+
+1. Open **Session Cleaner** from the KOReader menu.
+2. Browse books with statistics.
+3. Open a book to inspect its reconstructed sessions.
+4. Filter suspicious sessions if needed.
+5. Open a session to inspect the exact rows that belong to it.
+6. Delete one or multiple sessions only after reviewing them.
+
+## Repository layout
+
+- `sessioncleaner.koplugin/core/` — trusted database/session/settings/util engine
+- `sessioncleaner.koplugin/main.lua` — navigation and flow
+- `sessioncleaner.koplugin/sessioncleaner_presenter.lua` — display-ready data
+- `sessioncleaner.koplugin/sessioncleaner_bookcards.lua` — book row presentation
+- `sessioncleaner.koplugin/sessioncleaner_sessioncards.lua` — session row presentation
+- `sessioncleaner.koplugin/sessioncleaner_renderer.lua` — menu-facing row rendering
+
+## Notes
+
+This plugin is designed to be practical and safe, not magical. It helps you review and clean suspicious statistics data, but the source of truth remains KOReader's database.
+
+Smaller readers may naturally show fewer rows and more truncation than larger devices. That is expected.
